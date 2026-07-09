@@ -537,6 +537,11 @@ html.skin-diary .srow.done .stime, html.skin-diary .srow.done .srole{opacity:.55
 html.dark .seg button.on, html.dark .toggle2 button.on{background:#39414e;color:color-mix(in srgb, var(--accent) 60%, #fff);box-shadow:0 1px 3px rgba(0,0,0,.5);}
 .toggle2.flow button.in.on{color:var(--income);}
 .toggle2.flow button.out.on{color:var(--danger);}
+/* [P4] 루틴 요일 선택 칩 — 지킬 요일 다중선택 */
+.dow-row{display:flex;gap:6px;}
+.dow-chip{flex:1;border:1.5px solid var(--line);background:var(--surface);color:var(--ink-3);padding:10px 0;font-size:14px;font-weight:600;border-radius:11px;cursor:pointer;font-family:inherit;transition:.15s;}
+.dow-chip.on{border-color:var(--accent);background:color-mix(in srgb, var(--accent) 12%, var(--surface));color:var(--accent);}
+html.dark .dow-chip.on{background:color-mix(in srgb, var(--accent) 26%, #39414e);color:color-mix(in srgb, var(--accent) 55%, #fff);}
 /* [P4] 유형 3분류 세그 — 수입 파랑 / 지출 빨강 / 저축·투자 초록(중립적 이동) */
 .seg.flow3 button{font-size:12.5px;padding:9px 4px;}
 .seg.flow3 button.f-in.on{color:var(--income);}
@@ -974,7 +979,7 @@ function glassIcon(name){ return `<span class="glass-icon">${icon(name)}</span>`
 /* ============================================================
    STORE / 데이터 영속 헬퍼 (localStorage)
    ============================================================ */
-const KEY = 'vision-family-app-v20-p4';   // v20(prototype4): 예산·저축 대상 카테고리 '칩 다중선택'(capCategoryIds/savingCategoryIds 배열, 전체/개별). 구버전 단일필드 하위호환. → 재시드.
+const KEY = 'vision-family-app-v21-p4';   // v21(prototype4): 루틴 반복=요일 선택 모델(freq 'weekly'+days[] 배열). 구버전 perWeek→월·수·토 마이그레이션. → 재시드. // v20: 예산·저축 대상 카테고리 칩 다중선택(capCategoryIds/savingCategoryIds 배열).
 const BACKUP_KEY = 'vision-family-app-autobak';   // [P4] 복원/초기화 직전 현재 DB 자동 스냅샷(롤백용)
 let DB = null;
 
@@ -1002,6 +1007,12 @@ function normalizeDB(){
   if(DB.isSample===undefined) DB.isSample=false;   // [P4] 둘러보기(샘플) 상태 여부 — 한도 초과 시 '빈 상태로 시작' 안내 분기용
   if(!DB.currentMemberId && DB.members[0]) DB.currentMemberId=DB.members[0].id;
   if(DB.lastMemberId===undefined) DB.lastMemberId=DB.currentMemberId;
+  // [P4] 루틴 요일 모델 마이그레이션 — 구버전 주 N회(perWeek)엔 days 없음 → 월·수·토로 변환(하위호환)
+  DB.routines.forEach(r=>{
+    if(r.freq==='weekly' && !Array.isArray(r.days)) r.days=[1,3,6];
+    if(r.freq!=='weekly') delete r.days;
+    delete r.perWeek;
+  });
   // [P4] 고아 루틴 정리 — 삭제된 구성원의 루틴(사람 전용)이 홈에 남지 않게. (기록은 담당'없음'으로 보존)
   DB.routines = DB.routines.filter(r=> DB.members.some(m=>m.id===r.memberId));
 }
@@ -1012,13 +1023,13 @@ function uid(){ return Math.random().toString(36).slice(2,9); }
    ============================================================ */
 const NOW = new Date();
 function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function parseYmd(s){ const [y,m,dd]=s.split('-').map(Number); return new Date(y,m-1,dd); }
+function parseYmd(s){ if(!s||typeof s!=='string'||s.indexOf('-')<0) return new Date(NOW); const [y,m,dd]=s.split('-').map(Number); const d=new Date(y,(m||1)-1,dd||1); return isNaN(d)?new Date(NOW):d; }   // [P4] 빈/이상값 방어(크래시 방지)
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function hm(d){ return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 const DOW = ['일','월','화','수','목','금','토'];
 function fmtDateK(d){ return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+')'; }
 function fmtMonthDay(d){ return (d.getMonth()+1)+'월 '+d.getDate()+'일'; }   // 비전 기여 기록용(날짜 표시)
-function won(n){ return Number(n).toLocaleString('ko-KR'); }
+function won(n){ const v=Number(n); return (Number.isFinite(v)?v:0).toLocaleString('ko-KR'); }   // [P4] NaN 방어("NaN원" 방지)
 function todayStr(){ return ymd(NOW); }
 
 /* ============================================================
@@ -1063,8 +1074,9 @@ function repeatOccursOn(r, dstr){
   const rep = eventRepeat(r);
   if(rep==='daily') return true;
   if(rep==='weekly') return d.getDay()===base.getDay();
-  if(rep==='monthly') return d.getDate()===base.getDate();
-  if(rep==='yearly') return d.getDate()===base.getDate() && d.getMonth()===base.getMonth();
+  // [P4][QA] 말일 클램프 — 매월 31일은 짧은 달엔 말일에, 매년 2/29는 평년 2/28에 발생(통째로 사라지지 않게)
+  if(rep==='monthly'){ const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); return d.getDate()===Math.min(base.getDate(),last); }
+  if(rep==='yearly'){ if(d.getMonth()!==base.getMonth()) return false; const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); return d.getDate()===Math.min(base.getDate(),last); }
   return false;
 }
 // occurrence 완료 상태 (반복=occ맵 / 원본일=원본 done과 동기화. 단발=event.done)
@@ -1179,9 +1191,9 @@ function seed(){
   const routines = [
     { id:uid(), memberId:mom.id,   title:'가계부 정리',     freq:'daily',  perWeek:7, visionId:null, time:'21:00', count:1, remind:'0',  checks:{} },
     { id:uid(), memberId:mom.id,   title:'아침 스트레칭',   freq:'daily',  perWeek:7, visionId:null,     time:'07:00', count:1, remind:'10', checks:{} },
-    { id:uid(), memberId:mom.id,   title:'주 3회 가족 산책', freq:'weekly', perWeek:3, visionId:vTrip.id, time:'19:00', count:1, checks:{} },
+    { id:uid(), memberId:mom.id,   title:'가족 산책',        freq:'weekly', days:[1,3,6], visionId:vTrip.id, time:'19:00', count:1, checks:{} },
     { id:uid(), memberId:dad.id,   title:'아침 운동 30분',  freq:'daily',  perWeek:7, visionId:vTrip.id, time:'06:30', count:1, checks:{} },
-    { id:uid(), memberId:dad.id,   title:'영어 공부',       freq:'weekly', perWeek:4, visionId:null,     time:'22:00', count:1, checks:{} },
+    { id:uid(), memberId:dad.id,   title:'영어 공부',       freq:'weekly', days:[1,2,3,4], visionId:null,     time:'22:00', count:1, checks:{} },
     { id:uid(), memberId:child.id, title:'숙제하기',         freq:'daily',  perWeek:7, visionId:null,     time:'17:00', count:1, checks:{} },
     { id:uid(), memberId:child.id, title:'물 4잔 마시기',    freq:'daily',  perWeek:7, visionId:null,     time:'12:00', count:4, checks:{} }
   ];
@@ -1281,7 +1293,7 @@ function seed(){
   routines.forEach(r=>{
     for(let i=21;i>=1;i--){
       const d = addDays(NOW,-i);
-      const hit = (r.freq==='daily') ? Math.random()<.82 : ([1,3,6].includes(d.getDay()) && Math.random()<.78);
+      const hit = routineOnWeekday(r, d.getDay()) && (r.freq==='daily' ? Math.random()<.82 : Math.random()<.78);
       if(hit) r.checks[ymd(d)] = (r.count>1) ? r.count : true;
     }
   });
@@ -1395,8 +1407,7 @@ function visionFidelity(v){
   rts.forEach(r=>{
     for(let i=0;i<14;i++){
       const d = addDays(NOW,-i);
-      if(r.freq==='daily'){ total++; if(routineComplete(r,ymd(d))) done++; }
-      else { if([1,3,6].includes(d.getDay())){ total++; if(routineComplete(r,ymd(d))) done++; } }
+      if(routineOnWeekday(r, d.getDay())){ total++; if(routineComplete(r,ymd(d))) done++; }
     }
   });
   return total? Math.round(done/total*100):0;
@@ -1432,7 +1443,9 @@ function recInVisionPeriod(v, r){
   return ds>=rng.from && ds<=rng.to;
 }
 // [2] 현재 진행 중인 비전인지 (연간=올해, 월간=올해·이번달). 홈·비전탭은 현재 비전만 노출(과거 비전은 보고서에서만).
+// [P4] 기한 목표(QUAL)는 '마감일까지 진행 중인 목표' → 마감일이 아직 안 지났으면(미래 마감 포함) 지금부터 활성. (예: 7월에 만든 '10월까지 앱 출시')
 function isCurrentPeriodVision(v){
+  if(v.type==='QUAL' && v.dueDate) return v.dueDate >= ymd(NOW);
   if(v.period==='month') return visionYear(v)===NOW.getFullYear() && visionMonth(v)===NOW.getMonth();
   return visionYear(v)===NOW.getFullYear();
 }
@@ -1613,7 +1626,7 @@ function recordKindKey(r){
 function scheduleRowRecord(r, opts){
   opts = opts || {};
   const m = memberById(r.memberId);
-  const km = kindMeta(recordKindKey(r));
+  const km = kindMeta(recordKindKey(r)) || ['기록','check','var(--ink-3)'];   // [P4] 예상 밖 kind(import/레거시)에도 안 죽게 폴백
   // [A2] 색 = 구성원, 아이콘 = 종류. (기존 kind색/카테고리색 타일 → 구성원색)
   const tileColor = m ? m.color : 'var(--ink-3)';
   const d = new Date(r.ts);
@@ -1710,12 +1723,23 @@ function routineComplete(r, dstr){
   const p = routineProgress(r, dstr);
   return p.cur >= p.goal && p.goal>0;
 }
+// [P4] 루틴이 그 요일(0=일..6=토)에 예정인지. daily=매일, weekly=선택 요일(days). 구버전(days 없음)=월·수·토 하위호환.
+function routineOnWeekday(r, dayIdx){
+  if(r.freq==='daily') return true;
+  return Array.isArray(r.days) ? r.days.indexOf(dayIdx)>=0 : [1,3,6].indexOf(dayIdx)>=0;
+}
+// [P4] 선택 요일 라벨 (예: '월·수·금')
+function routineDaysLabel(r){
+  if(r.freq==='daily') return '매일';
+  const ds = Array.isArray(r.days)&&r.days.length ? r.days.slice() : [1,3,6];
+  return ds.slice().sort(function(a,b){return a-b;}).map(function(i){return DOW[i];}).join('·');
+}
 function routineStreak(r){
   let s=0;
   for(let i=0;i<90;i++){
     const d=addDays(NOW,-i);
-    if(r.freq==='daily'){ if(routineComplete(r,ymd(d))) s++; else break; }
-    else { if([1,3,6].includes(d.getDay())){ if(routineComplete(r,ymd(d))) s++; else break; } }
+    if(!routineOnWeekday(r, d.getDay())) continue;   // 예정 아닌 요일은 연속에서 스킵
+    if(routineComplete(r,ymd(d))) s++; else break;
   }
   return s;
 }
@@ -1734,7 +1758,7 @@ function scheduleRowRoutine(r, opts){
   const done = routineComplete(r, today);
   const m = memberById(r.memberId);
   const st = routineStreak(r);
-  const freqLabel = r.freq==='daily'?'매일':`주 ${r.perWeek}회`;
+  const freqLabel = routineDaysLabel(r);
   const isCount = r.count>1;
   // [A2][5] LEAD = 완료 체크(원형 체크/카운트 ring), 완료 시각요소 색=구성원 역할색
   const memColor = m ? m.color : 'var(--accent)';
@@ -1777,15 +1801,9 @@ function recordsOnDay(dstr){
   return DB.records.filter(r=>ymd(new Date(r.ts))===dstr).sort((a,b)=>a.ts-b.ts);
 }
 function todayRecords(){ return recordsOnDay(ymd(NOW)); }
-function routineDueToday(r){
-  if(r.freq==='daily') return true;
-  return [1,3,6].includes(NOW.getDay());
-}
-// [P3] 특정 날짜에 그 루틴이 예정인지 (과거 백필용). 주N회=월·수·토 데모 규칙.
-function routineDueOnDay(r, dstr){
-  if(r.freq==='daily') return true;
-  return [1,3,6].includes(parseYmd(dstr).getDay());
-}
+function routineDueToday(r){ return routineOnWeekday(r, NOW.getDay()); }
+// [P3] 특정 날짜에 그 루틴이 예정인지 (과거 백필용). 선택 요일 기준.
+function routineDueOnDay(r, dstr){ return routineOnWeekday(r, parseYmd(dstr).getDay()); }
 
 /* ============================================================
    PAGE: HOME / 홈 (인사 + 비전 + 오늘의 일정[필터])
@@ -2076,7 +2094,7 @@ function pickGuidedKind(kind, flow){
 // 타일 선택 → 시트 닫고 기존 기록 입력 시트 재사용
 function pickQuickKind(kind, flow){
   closeQuickSheet();
-  openRecordSheet(null, kind, flow);
+  openRecordSheet(null, kind, flow, null, null, (typeof homeSelDay!=='undefined'?homeSelDay:null));   // [P4][QA] 홈 선택일로 기본 날짜
 }
 
 // 선택일 통합 (일정기록 event + 그날 루틴) 시간순, 무시간/종일은 상단존.
@@ -3152,6 +3170,8 @@ function toggleRepSection(key){
    연간 보고서 = 그 연도의 연간 비전. 월간 보고서 = 그 연·월의 월간 비전.
    일간/주간 보고서 = 그 기간이 속한 연·월의 (연간+월간) 비전(겹치는 비전 노출). */
 function visionInReportPeriod(v){
+  // [P4][QA] 기한 목표(QUAL)는 마감일이 리포트 기간에 속하면 노출 (비전탭의 마감일 기준과 일치)
+  if(v.type==='QUAL' && v.dueDate){ const rng=reportRange(); return v.dueDate>=rng.from && v.dueDate<=rng.to; }
   const vy = visionYear(v);
   if(repPeriod==='year') return v.period==='year' && vy===repYear;
   if(repPeriod==='month') return v.period==='month' && vy===repMonth.y && visionMonth(v)===repMonth.m;
@@ -3374,7 +3394,7 @@ function routineWeekGrid(r){
   let cells='';
   for(let i=0;i<7;i++){
     const d=addDays(monday,i); const ds=ymd(d);
-    const due = r.freq==='daily' ? true : [1,3,6].includes(d.getDay());
+    const due = routineOnWeekday(r, d.getDay());
     const future = d.getTime() > NOW.getTime() && ds!==ymd(NOW);
     const p = routineProgress(r, ds);
     let cls='wdc';
@@ -3392,7 +3412,7 @@ function routineMonthRate(r){
   let done=0, total=0;
   for(let dd=1; dd<=NOW.getDate(); dd++){
     const d=new Date(y,mo,dd);
-    const due = r.freq==='daily' ? true : [1,3,6].includes(d.getDay());
+    const due = routineOnWeekday(r, d.getDay());
     if(!due) continue;
     total++;
     if(routineComplete(r,ymd(d))) done++;
@@ -3776,6 +3796,11 @@ function doDeleteMember(id){
   DB.members=DB.members.filter(x=>x.id!==id);
   const wasCurrent=DB.currentMemberId===id;
   if(wasCurrent) DB.currentMemberId=DB.members[0].id;
+  // [P4][QA] 필터/리포트가 삭제된 구성원을 계속 가리켜 '빈 화면'되는 것 방지
+  if(homeFilter===id) homeFilter='all';
+  if(recMemberFilter===id) recMemberFilter='all';
+  if(visionHabitFilter===id) visionHabitFilter='all';
+  if(repPerson===id) repPerson=DB.members[0].id;
   recomputeVisions(); saveDB(); closeSheet(); renderAll();
   toastAction('구성원을 삭제했어요','실행취소',()=>{
     DB.members.push(snapMember);
@@ -3944,7 +3969,13 @@ function saveVision(){
   if(!editing) DB.visions.push(v);
   const reopenId = editing ? v.id : null;
   vEditId=null;
-  recomputeVisions(); saveDB(); closeSheet(); renderAll(); toast(editing?'비전을 수정했어요':'비전이 추가되었어요');
+  recomputeVisions(); saveDB(); closeSheet(); renderAll();
+  // [P4] 대상 기간이 현재가 아니면 목록에 안 뜨므로 안내(조용히 사라지는 혼란 방지)
+  if(!editing && !isActiveVision(v)){
+    toast('비전을 만들었어요 · 대상 기간이 지금이 아니라 목록엔 아직 안 보여요 (그 기간이 되면 나타나요)');
+  } else {
+    toast(editing?'비전을 수정했어요':'비전이 추가되었어요');
+  }
   if(reopenId) openVisionDetail(reopenId);   // 편집 후 상세로 복귀
 }
 
@@ -3963,7 +3994,7 @@ function toggleRecAdv(){
 // [버그] 비전 상세에서 기여 기록을 눌러 이 시트를 열었으면 닫은 뒤 그 상세로 복귀
 let recSheetReturnVision=null;
 let rOccDate=null;   // [P3] 반복 일정의 특정 회차에서 열렸으면 그 날짜(건너뛰기용)
-function openRecordSheet(editId, defaultKind, defaultFlow, defaultMember, occDate){
+function openRecordSheet(editId, defaultKind, defaultFlow, defaultMember, occDate, defaultDate){
   rEditId = editId || null;
   rOccDate = occDate || null;
   // 비전 상세 시트가 떠 있는 상태에서 기여 기록을 열었다면 복귀 대상 기억
@@ -3981,7 +4012,7 @@ function openRecordSheet(editId, defaultKind, defaultFlow, defaultMember, occDat
   } else {
     // 체중 기록은 기본적으로 다이어트(manual·kg) 비전에 연결 시도
     let defVis='';
-    if((defaultKind||'')==='weight'){ const dv=DB.visions.find(v=>v.type==='QUANT'&&v.metric==='manual'&&/kg/i.test(v.unit||'')); if(dv) defVis=dv.id; }
+    if((defaultKind||'')==='weight'){ const dv=DB.visions.find(v=>v.type==='QUANT'&&v.metric==='manual'&&/kg/i.test(v.unit||'')&&isActiveVision(v)); if(dv) defVis=dv.id; }
     // [P3] 기본값 상속: 종류=직전 사용값 / 구성원=헤더 활성 구성원 / 카테고리=최근 사용 칩 / 날짜·시간=지금
     const defKind = defaultKind||DB.lastKind||'expense';
     const defFlow = defaultFlow||DB.lastFlow||'out';
@@ -3993,7 +4024,7 @@ function openRecordSheet(editId, defaultKind, defaultFlow, defaultMember, occDat
     }
     // [전략 권고] 캘린더에서 특정 구성원을 선택(필터)한 상태로 기록하면 그 사람으로 기본 지정
     const defMember = defaultMember || DB.currentMemberId || DB.members[0].id;
-    rForm={ memberId:defMember, kind:defKind, flow:defFlow, title:'', amount:'', value:'', categoryId:defCat, visionId:defVis, date:ymd(NOW), time:hm(NOW), repeat:'none', remind:'none' };
+    rForm={ memberId:defMember, kind:defKind, flow:defFlow, title:'', amount:'', value:'', categoryId:defCat, visionId:defVis, date:(defaultDate||ymd(NOW)), time:hm(NOW), repeat:'none', remind:'none' };   // [P4][QA] 홈에서 선택한 날짜로 저장(오늘로 박히던 문제)
   }
   recAdvOpen = false;   // [P3] '옵션 더보기'는 매번 접힌 상태로 시작
   renderRecordSheet();
@@ -4152,7 +4183,7 @@ function flowLabel(f){ return f==='in' ? '＋ 수입' : '－ 지출'; }
 function setRecKindForm(k){
   rForm.kind=k; if(k!=='expense') rForm.categoryId=''; catAddMode=false;
   // 체중으로 전환 시 다이어트(manual·kg) 비전 자동 연결 제안
-  if(k==='weight' && !rForm.visionId){ const dv=DB.visions.find(v=>v.type==='QUANT'&&v.metric==='manual'&&/kg/i.test(v.unit||'')); if(dv) rForm.visionId=dv.id; }
+  if(k==='weight' && !rForm.visionId){ const dv=DB.visions.find(v=>v.type==='QUANT'&&v.metric==='manual'&&/kg/i.test(v.unit||'')&&isActiveVision(v)); if(dv) rForm.visionId=dv.id; }
   renderRecordSheet();
 }
 function setRecFlowForm(f){ rForm.flow=f; rForm.categoryId=''; catAddMode=false; renderRecordSheet(); }   // flow 변경 시 카테고리 리셋 (수입/지출 카테고리 분리)
@@ -4238,11 +4269,11 @@ function openRoutineSheet(editId){
   if(editId){
     const r=DB.routines.find(x=>x.id===editId);
     if(!r){ toast('루틴을 찾을 수 없어요'); return; }
-    rtForm={ memberId:r.memberId, title:r.title, freq:r.freq, perWeek:r.perWeek, visionId:r.visionId||'', time:r.time||'09:00', count:r.count||1, remind:recRemind(r) };
+    rtForm={ memberId:r.memberId, title:r.title, freq:r.freq, days:(Array.isArray(r.days)?r.days.slice():[1,3,6]), visionId:r.visionId||'', time:r.time||'09:00', count:r.count||1, remind:recRemind(r) };
   } else {
     // [단일 운영자] 기본 소유 태그 = 비전탭 습관 필터가 특정 구성원이면 그 구성원, 아니면 직전 사용/첫 구성원
     const defMember = (visionHabitFilter && visionHabitFilter!=='all') ? visionHabitFilter : (DB.lastMemberId || DB.members[0].id);
-    rtForm={ memberId:defMember, title:'', freq:'daily', perWeek:3, visionId:'', time:'09:00', count:1, remind:'none' };
+    rtForm={ memberId:defMember, title:'', freq:'daily', days:[1,3,5], visionId:'', time:'09:00', count:1, remind:'none' };
   }
   renderRoutineSheet();
 }
@@ -4260,8 +4291,9 @@ function renderRoutineSheet(){
       <div style="font-size:12px;color:var(--ink-3);margin-top:6px;line-height:1.5">2 이상이면 카운트형 (예: 물 4잔). 한 번 탭할 때마다 진행 링이 부분 채워져요.</div></div>
     <div class="field"><label>반복</label><div class="toggle2">
       <button class="${rtForm.freq==='daily'?'on':''}" onclick="rtForm.freq='daily';renderRoutineSheet()">매일</button>
-      <button class="${rtForm.freq==='weekly'?'on':''}" onclick="rtForm.freq='weekly';renderRoutineSheet()">주 N회</button></div></div>
-    ${rtForm.freq==='weekly'?`<div class="field"><label>주당 횟수</label><input type="number" id="rtW" value="${rtForm.perWeek}" min="1" max="7" oninput="rtForm.perWeek=+this.value"></div>`:''}
+      <button class="${rtForm.freq==='weekly'?'on':''}" onclick="rtForm.freq='weekly';renderRoutineSheet()">요일 선택</button></div></div>
+    ${rtForm.freq==='weekly'?`<div class="field"><label>요일</label><div class="dow-row">${[0,1,2,3,4,5,6].map(i=>`<button type="button" class="dow-chip ${(rtForm.days||[]).indexOf(i)>=0?'on':''}" onclick="toggleRoutineDay(${i})">${DOW[i]}</button>`).join('')}</div>
+      <div style="font-size:12px;color:var(--ink-3);margin-top:6px;line-height:1.5">지킬 요일을 탭해서 여러 개 고를 수 있어요.</div></div>`:''}
     <div class="field"><label>알림</label><select id="rtRemind" onchange="rtForm.remind=this.value">${rtRemOpts}</select>
       <div style="font-size:12px;color:var(--ink-3);margin-top:6px;line-height:1.5">루틴 시간 기준이에요. 알림은 앱에서 전송돼요.</div></div>
     <div class="field"><label>비전 연결 (선택)</label><select id="rtV" onchange="rtForm.visionId=this.value">${vopts}</select></div>
@@ -4269,16 +4301,25 @@ function renderRoutineSheet(){
     ${editing?`<button class="btn btn-danger btn-block" style="margin-top:8px" onclick="deleteRoutine()">${icon('trash',15)} 삭제</button>`:''}`;
   showSheet(html);
 }
+function toggleRoutineDay(i){
+  const days = Array.isArray(rtForm.days) ? rtForm.days.slice() : [];
+  const at = days.indexOf(i);
+  if(at>=0) days.splice(at,1); else days.push(i);
+  rtForm.days = days;
+  renderRoutineSheet();
+}
 function saveRoutine(){
   if(!rtForm.title.trim()){ toast('제목을 입력해주세요'); return; }
+  if(rtForm.freq==='weekly' && (!Array.isArray(rtForm.days) || !rtForm.days.length)){ toast('요일을 하나 이상 선택해주세요'); return; }
   const cnt = Math.max(1, rtForm.count||1);
+  const days = (rtForm.freq==='weekly' && Array.isArray(rtForm.days)) ? rtForm.days.slice().sort(function(a,b){return a-b;}) : [];
   if(rtEditId){
     const r=DB.routines.find(x=>x.id===rtEditId);
     r.memberId=rtForm.memberId; r.title=rtForm.title.trim();
-    r.freq=rtForm.freq; r.perWeek=rtForm.perWeek; r.visionId=rtForm.visionId||null; r.time=rtForm.time; r.count=cnt; r.remind=rtForm.remind||'none';
-    delete r.emoji;
+    r.freq=rtForm.freq; r.days=days; r.visionId=rtForm.visionId||null; r.time=rtForm.time; r.count=cnt; r.remind=rtForm.remind||'none';
+    delete r.emoji; delete r.perWeek;
   } else {
-    DB.routines.push({ id:uid(), memberId:rtForm.memberId, title:rtForm.title.trim(), freq:rtForm.freq, perWeek:rtForm.perWeek, visionId:rtForm.visionId||null, time:rtForm.time, count:cnt, remind:rtForm.remind||'none', checks:{} });
+    DB.routines.push({ id:uid(), memberId:rtForm.memberId, title:rtForm.title.trim(), freq:rtForm.freq, days:days, visionId:rtForm.visionId||null, time:rtForm.time, count:cnt, remind:rtForm.remind||'none', checks:{} });
   }
   recomputeVisions(); saveDB(); closeSheet(); renderAll(); toast(rtEditId?'수정되었어요':'루틴이 추가되었어요');
 }
@@ -4572,16 +4613,23 @@ function pickSearch(type,id){
    INIT / 초기화
    ============================================================ */
 function init(){
+ try{
   DB = loadDB();
   if(!DB || !DB.members || !DB.visions || !DB.currentMemberId) seed();
-  else recomputeVisions();
-  normalizeDB();   // [P4] 하위호환 필드 보정 일원화
+  normalizeDB();   // [P4] 스키마 보정을 recomputeVisions보다 먼저 (records 없는 구버전 DB 부팅 백지 방지)
+  recomputeVisions();
   applyTheme(DB.theme);   // [P3] 저장된 테마 적용
   document.documentElement.classList.toggle('dark', !!DB.dark);   // [P3] 다크 모드
   document.getElementById('hdrDate').textContent = NOW.getFullYear()+'년 '+fmtDateK(NOW);
   renderTabbar(); renderAll();
   // [P2] 처음(또는 미설정)이면 온보딩 오버레이 노출
   if(shouldOnboard()) openOnboarding(false);
+ }catch(e){
+  // [P4] 부팅 중 예외 → 손상 데이터로 판단, 시드로 폴백(백지 방지)
+  try{ localStorage.removeItem(KEY); }catch(_){}
+  seed(); normalizeDB();
+  try{ applyTheme(DB.theme); document.documentElement.classList.toggle('dark', !!DB.dark); document.getElementById('hdrDate').textContent = NOW.getFullYear()+'년 '+fmtDateK(NOW); renderTabbar(); renderAll(); }catch(_){}
+ }
 }
 init();
 </script>
