@@ -2,11 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>비전 가족 라이프</title>
+<title>라이프 비전</title>
 <!-- [P4] 외부 CDN 제거(프라이버시·오프라인·사파리 트래커 차단 회피). 폰트=기기 기본(iOS: Apple SD Gothic Neo / SF). -->
 <!-- [P3] 문구 다이어리 테마 = 기본 폰트(Pretendard)·글씨 위계 그대로. 종이 팔레트·스티커·질감만 스킨으로. (별도 폰트 로드 없음) -->
 <style>
@@ -138,12 +138,15 @@ html.dark.skin-diary .srow .lead-tile, html.dark.skin-diary .done-vrow .dv-lead{
 html.dark.skin-diary .seg button.on, html.dark.skin-diary .toggle2 button.on{ background:#3b352a; }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;}
+/* [P4] 확대/축소 고정 — 더블탭·핀치 줌 차단(앱 느낌). manipulation=더블탭 줌 없앰. iOS 사파리는 gesturestart 차단 병행 필요. */
+html{touch-action:manipulation;-webkit-text-size-adjust:100%;}
 body{
   font-family:'Pretendard',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
   background:#e7eaef;color:var(--ink);
   display:flex;justify-content:center;align-items:center;min-height:100vh;
   padding:14px;
   line-height:1.65;font-weight:400;
+  touch-action:manipulation;
 }
 /* ============================================================
    PHONE FRAME / 폰 프레임
@@ -171,10 +174,9 @@ body{
   background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-bottom:1px solid var(--glass-border);
 }
-.header .date{font-size:12px;color:var(--ink-3);font-weight:400;letter-spacing:.2px;}
-.header .title{font-size:25px;font-weight:600;margin-top:3px;letter-spacing:-.6px;}
-/* [단일 운영자] 헤더 우측 = 단순 앱 타이틀(로그인/전환 개념 없음) */
-.app-brand{font-size:13px;font-weight:500;letter-spacing:-.2px;color:var(--ink-3);padding-bottom:3px;}
+.header .hdr-date{font-size:12px;color:var(--ink-3);font-weight:400;letter-spacing:.2px;min-width:36px;padding-bottom:6px;}
+/* [P4] 앱 이름 = 헤더 절대 중앙(양옆 날짜·검색 폭과 무관하게 항상 가운데). bottom=헤더 하단패딩과 맞춰 날짜·검색과 같은 줄. */
+.app-brand{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);font-size:17px;font-weight:600;letter-spacing:-.4px;color:var(--ink);white-space:nowrap;}
 .hdr-search{width:36px;height:36px;border-radius:50%;border:none;background:var(--fill-soft);color:var(--ink-2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
 .hdr-search svg{width:18px;height:18px;}
 .hdr-search:active{transform:scale(.92);}
@@ -222,7 +224,23 @@ body{
 /* ============================================================
    FAB / 플로팅 빠른기록 버튼 (전 탭 공통, 하단 탭바 위에 떠 있음)
    ============================================================ */
-/* [P4] .fab 제거됨(탭별 컨텍스트 버튼으로 대체) — 죽은 스타일 삭제 */
+/* [P4] 통합 기록 추가 FAB — 홈·캘린더·가계부에서만 표시(비전·더보기 숨김). z=55: 탭바(50) 위, 시트/오버레이(70·80) 아래 → 시트 열리면 자동으로 가려짐. */
+.fab{
+  position:absolute;right:18px;bottom:calc(84px + 16px);
+  width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;
+  background:var(--accent);color:#fff;z-index:55;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 8px 22px rgba(15,30,80,.28), 0 2px 6px rgba(15,30,80,.18);
+  transition:transform .15s, opacity .2s;
+}
+.fab svg{width:26px;height:26px;}
+.fab:active{transform:scale(.9);}
+.fab.hide{display:none;}
+/* 실행취소 토스트가 뜬 동안엔 FAB를 살짝 비켜(흐리게) 겹침/주의분산 방지 */
+.phone.toasting .fab{opacity:.35;pointer-events:none;}
+@media (max-width:520px){
+  .fab{ bottom:calc(84px + env(safe-area-inset-bottom, 0px) + 16px); }
+}
 /* 빠른기록 바텀시트 (아래→위 슬라이드, 손잡이/배경탭 닫기) */
 .qsheet-overlay{position:absolute;inset:0;background:rgba(12,16,32,.42);z-index:70;
   display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .28s ease;}
@@ -430,6 +448,8 @@ html.skin-diary .srow.done .stime, html.skin-diary .srow.done .srole{opacity:.55
 .cal-items{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;align-items:center;margin-top:5px;max-width:100%;}
 .cal-item{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow:0 1px 3px rgba(20,24,50,.22);}
 .cal-item svg{width:13px;height:13px;stroke-width:2.2;}
+/* [P4] 완료 루틴 칩 — 실제 기록과 구분되게 안쪽 흰 링 */
+.cal-item.done-rt{box-shadow:0 1px 3px rgba(20,24,50,.22), inset 0 0 0 1.6px rgba(255,255,255,.6);}
 .cal-more{font-size:11px;font-weight:600;color:var(--ink-2);background:var(--track);border-radius:99px;padding:0 6px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
 /* week strip — 월간 셀과 동일 디자인 언어 (색·라운드·항목 통일), 칸이 커서 살짝 더 큼 */
 .wk{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
@@ -520,6 +540,13 @@ html.skin-diary .srow.done .stime, html.skin-diary .srow.done .srole{opacity:.55
 @keyframes up{from{transform:translateY(100%);}to{transform:none;}}
 .sheet h3{margin:2px 0 18px;font-size:19px;font-weight:600;letter-spacing:-.4px;line-height:1.45;}
 .sheet .grab{display:block;width:40px;height:4px;border-radius:99px;background:var(--line-2);margin:0 auto 16px;}
+/* [P4] 시트 고정 닫기(X) — sticky로 스크롤해도 항상 우측 상단에 붙어있음. 뒤 내용은 아래로 스크롤되며 살짝 가려짐(작아서 무방). */
+.sheet{position:relative;}
+.sheet-x{position:sticky;top:0;z-index:6;display:flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;
+  background:var(--fill-soft);color:var(--ink-2);margin:0 0 -22px auto;box-shadow:0 1px 4px rgba(15,30,80,.10);}
+.sheet-x:active{transform:scale(.9);}
+.sheet-x svg{width:18px;height:18px;pointer-events:none;}
 .field{margin-bottom:16px;}
 .field label{display:block;font-size:12px;font-weight:500;color:var(--ink-2);margin-bottom:7px;line-height:1.5;}
 .field input[type=text],.field input[type=number],.field input[type=date],.field input[type=time],.field select{
@@ -728,6 +755,12 @@ html.dark.skin-diary .toast{background:#221d16;}
    [6][7] 빠른 기록 그리드 (아이콘+라벨 타일)
    ============================================================ */
 .qgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;}
+/* [P4] 기록 추가 시트의 '반복 루틴 만들기' — 일회성 기록 5종과 구분되게 그리드 아래 별도 행(구분선 위) */
+.q-routine{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:14px;padding:13px;
+  border:none;border-top:1px solid var(--line);border-radius:0 0 4px 4px;background:transparent;
+  color:var(--ink-2);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;letter-spacing:-.2px;}
+.q-routine svg{width:16px;height:16px;color:var(--ink-3);}
+.q-routine:active{opacity:.6;}
 /* [회의] 가이드 기록 종류 타일 — 왼쪽 정렬(위 역할 행과 시작선 통일). 타일 고정폭. */
 .qrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:2px;}
 .qrow .qtile{flex:0 0 auto;width:74px;}
@@ -863,16 +896,11 @@ html.dark .home-qadd .hq .hq-ic, html.dark .qtile .qic{
 <body>
 <div class="phone">
   <div class="notch"></div>
+  <!-- [P4] 헤더: 앱 이름 '라이프 비전' 가운데(절대중앙) · 날짜 왼쪽 · 검색 맨 오른쪽 -->
   <div class="header">
-    <div>
-      <div class="date" id="hdrDate"></div>
-      <div class="title" id="hdrTitle">홈</div>
-    </div>
-    <!-- [단일 운영자] 앱 타이틀 + 전역 검색 -->
-    <div style="display:flex;align-items:center;gap:10px">
-      <button class="hdr-search" onclick="openSearchSheet()" aria-label="검색"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.2-4.2"/></svg></button>
-      <div class="app-brand" id="appBrand">비전 가족</div>
-    </div>
+    <div class="hdr-date" id="hdrDate"></div>
+    <div class="app-brand" id="appBrand">라이프 비전</div>
+    <button class="hdr-search" onclick="openSearchSheet()" aria-label="검색"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.2-4.2"/></svg></button>
   </div>
 
   <div class="screen" id="screen">
@@ -895,6 +923,8 @@ html.dark .home-qadd .hq .hq-ic, html.dark .qtile .qic{
   </div>
 
   <div class="tabbar" id="tabbar"></div>
+  <!-- [P4] 통합 기록 추가 FAB — 홈·캘린더·가계부에서 떠다니며 빠른 기록 창을 엶(스크롤해도 안 사라짐) -->
+  <button class="fab" id="fab" onclick="openQuickSheet()" aria-label="기록 추가"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
   <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
   <!-- [P2] 첫 실행 온보딩 오버레이 (포커스 선택) -->
   <div class="onb-overlay" id="onbOverlay"><div class="onb-sheet" id="onbSheet"></div></div>
@@ -923,6 +953,7 @@ const ICONS = {
   scale:'<path d="M5 7h14l2 11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1L5 7Z"/><circle cx="12" cy="13" r="3"/><path d="M12 13 14 10"/>',
   // 액션
   plus:'<path d="M12 5v14M5 12h14"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
   pencil:'<path d="M16.5 4.5 19.5 7.5 9 18l-3.5.5L6 15 16.5 4.5Z"/>',
   trash:'<path d="M4 6.5h16M9 6.5V4.5h6v2M6 6.5 7 20a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13.5M10 10v7M14 10v7"/>',
   funnel:'<path d="M4 5h16l-6 7.5V19l-4 2v-8.5L4 5Z"/>',
@@ -1400,18 +1431,46 @@ function visionPct(v){
   if(denom===0) return 0;
   return Math.max(0, Math.min(100, Math.round(((c - s) / denom) * 100)));
 }
+// [P4] 최근 지킨 비율 — '요즘 얼마나 꾸준한가'(최근 7일=1주 창). 루틴 만들기 이전 날은 제외(억울한 실패 방지). 비전 진행률이 아니라 보조 지표.
 function visionFidelity(v){
   const rts = DB.routines.filter(r=>r.visionId===v.id);
   if(!rts.length) return 0;
   let done=0, total=0;
   rts.forEach(r=>{
-    for(let i=0;i<14;i++){
+    const start = r.createdAt ? parseYmd(r.createdAt) : null;
+    for(let i=0;i<7;i++){
       const d = addDays(NOW,-i);
+      if(start && d<start) continue;   // 루틴 생성 전 날은 세지 않음
       if(routineOnWeekday(r, d.getDay())){ total++; if(routineComplete(r,ymd(d))) done++; }
     }
   });
   return total? Math.round(done/total*100):0;
 }
+// [P4] 누적 달성률(기한 목표) — 시작(루틴/비전 만든 날)부터 마감일까지 '예정된 루틴 날' 중 지금까지 지킨 날의 비율. 예) 매일 175일 중 1일 지킴 = 1%.
+function visionAchieveCounts(v){
+  const rts = DB.routines.filter(r=>r.visionId===v.id);
+  if(!rts.length || !v.dueDate) return {done:0,total:0};
+  const due = parseYmd(v.dueDate);
+  const todayStr = ymd(NOW);
+  let done=0, total=0;
+  rts.forEach(r=>{
+    // 시작 기준: 루틴 생성일 → 비전 생성일 → (구버전) 첫 기록일 → 오늘
+    const startStr = r.createdAt || v.createdAt || routineFirstCheck(r) || todayStr;
+    let d = parseYmd(startStr), guard=0;
+    while(d<=due && guard<2000){
+      if(routineOnWeekday(r, d.getDay())){
+        total++;
+        if(ymd(d)<=todayStr && routineComplete(r, ymd(d))) done++;
+      }
+      d = addDays(d,1); guard++;
+    }
+  });
+  return {done,total};
+}
+// 기한 목표 진행률(%) = 누적 달성률. 연결 루틴 없으면 0.
+function visionQualPct(v){ const c=visionAchieveCounts(v); return c.total? Math.round(c.done/c.total*100):0; }
+// 비전 진행률 통합 — 숫자목표=visionPct, 기한목표=누적 달성률. (표시용 공통)
+function visionProgressPct(v){ return v.type==='QUANT' ? visionPct(v) : visionQualPct(v); }
 function dday(v){
   return Math.ceil((parseYmd(v.dueDate) - parseYmd(ymd(NOW)))/(1000*60*60*24));
 }
@@ -1530,11 +1589,11 @@ function visionMainHtml(v){
       barPct:pct, barColor:'var(--accent)'
     };
   }else{
-    const d = dday(v); const fid = visionFidelity(v);
+    const d = dday(v); const c = visionAchieveCounts(v); const pct = c.total?Math.round(c.done/c.total*100):0;
     return {
       big:`<div class="vbig">${d>=0?'D-'+d:'D+'+(-d)}</div>`,
-      sub:`목표일 ${escapeHtml(v.dueDate)} · 루틴 지킨 비율 ${fid}%`,
-      barPct:fid, barColor:'var(--accent)'
+      sub: c.total ? `목표일 ${escapeHtml(v.dueDate)} · 지킨 날 ${c.done}/${c.total} (${pct}%)` : `목표일 ${escapeHtml(v.dueDate)} · 연결 루틴 없음`,
+      barPct:pct, barColor:'var(--accent)'
     };
   }
 }
@@ -1723,6 +1782,12 @@ function routineComplete(r, dstr){
   const p = routineProgress(r, dstr);
   return p.cur >= p.goal && p.goal>0;
 }
+// [P4] 가장 이른 기록일(YYYY-MM-DD) — createdAt 없는 구버전/시드 루틴의 시작 추정용
+function routineFirstCheck(r){
+  const keys = Object.keys((r&&r.checks)||{});
+  if(!keys.length) return null;
+  return keys.sort()[0];
+}
 // [P4] 루틴이 그 요일(0=일..6=토)에 예정인지. daily=매일, weekly=선택 요일(days). 구버전(days 없음)=월·수·토 하위호환.
 function routineOnWeekday(r, dayIdx){
   if(r.freq==='daily') return true;
@@ -1882,9 +1947,8 @@ function renderHome(){
   // --- 3) 오늘(선택일) 통합 리스트 + 빠른입력 ---
   //  [#3b] 입력(빠른입력) → 구분선 → 보기(구성원 필터 + 타임라인) 순으로 영역을 분리해 촘촘함 완화.
   const dayLbl = dayTitle(homeSelDay);
-  const todayBody = homeQuickAddHtml()
-    + `<div class="home-list-div"></div>`
-    + memberFilterPills(homeFilter, 'setHomeFilter', true)
+  // [P4] 홈 인라인 빠른입력 타일 제거 → 우측 하단 통합 FAB로 일원화(홈·캘린더·가계부 동일). 보기(필터+타임라인)만 남김.
+  const todayBody = memberFilterPills(homeFilter, 'setHomeFilter', true)
     + `<div class="open-list">${renderTodayTimeline(homeSelDay)}</div>`;
   const todaySection = homeSection('today', `${escapeHtml(dayLbl)} 할 일 · 일정`, todayBody, {});
 
@@ -1981,7 +2045,7 @@ function homeFocusRoutine(dstr){
   const body = `<div class="focus-hi" onclick="go('vision')">
     <div class="fh-col"><div class="fh-v">${done}/${total}</div><div class="fh-l">오늘 루틴 완료</div></div>
     <div class="fh-bar"><span style="width:${pct}%"></span></div>
-    <div class="fh-go">습관 ${icon('chevron-right',15)}</div>
+    <div class="fh-go">루틴 ${icon('chevron-right',15)}</div>
   </div>`;
   return `<div class="sec-title">오늘의 루틴<span class="more" onclick="go('vision')">전체</span></div>${body}`;
 }
@@ -1990,7 +2054,7 @@ function homeFocusRoutine(dstr){
 function visionSummaryRow(v){
   const cap=isCapVision(v);
   const used=cap?capUsedPct(v):0;
-  const barPct = cap ? Math.min(100,used) : (v.type==='QUANT'?visionPct(v):visionFidelity(v));
+  const barPct = cap ? Math.min(100,used) : visionProgressPct(v);
   const delta = cap ? 0 : weeklyVisionDelta(v);
   const over = cap && used>=100;
   const deltaHtml = over ? `<span class="vs-delta" style="color:var(--danger)">예산 초과</span>`
@@ -2027,7 +2091,7 @@ function weeklyVisionDelta(v){
   return Math.min(20, done*2);
 }
 
-// [1] 빠른 기록 타일 그리드 (FAB 바텀시트 안에서 사용) — 5종: 지출·수입·운동·일정·체중
+// [P4] 통합 기록 추가 그리드 (FAB 바텀시트) — 일회성 기록 5종(지출·수입·운동·일정·체중) + 아래 '반복 루틴 만들기' 별도 행.
 function quickRecordGrid(){
   // [3] 무채색·라운드 타일 (색 제거). 종류는 아이콘 모양으로만 구분.
   const tiles = [
@@ -2041,11 +2105,13 @@ function quickRecordGrid(){
     <div class="qtile" onclick="${t.onclick}">
       <span class="qic">${icon(t.ic)}</span>
       <span class="qlb">${t.lb}</span>
-    </div>`).join('')}</div>`;
+    </div>`).join('')}</div>
+    <button class="q-routine" onclick="closeQuickSheet();openRoutineSheet()">${icon('repeat',16)} 반복 루틴 만들기</button>`;
 }
 /* [1] FAB 빠른기록 바텀시트 — 아래에서 위로 슬라이드, 손잡이/배경탭/아래로 드래그 닫기 */
 function openQuickSheet(){
   const ov = document.getElementById('qsheetOverlay');
+  const t = document.getElementById('qsheetTitle'); if(t) t.textContent = '기록 추가';
   document.getElementById('qsheetBody').innerHTML = quickRecordGrid();
   // 다음 프레임에 show → transform 트랜지션 작동
   requestAnimationFrame(()=>ov.classList.add('show'));
@@ -2091,10 +2157,15 @@ function pickGuidedKind(kind, flow){
   closeQuickSheet();
   openRecordSheet(null, kind, flow||undefined, quickFlow.member||undefined);   // 고른 역할·종류로 기록 시트 시작
 }
-// 타일 선택 → 시트 닫고 기존 기록 입력 시트 재사용
+// 타일 선택 → 시트 닫고 기존 기록 입력 시트 재사용. [P4] 열린 탭에 맞춰 기본 날짜·구성원 프리셋.
 function pickQuickKind(kind, flow){
   closeQuickSheet();
-  openRecordSheet(null, kind, flow, null, null, (typeof homeSelDay!=='undefined'?homeSelDay:null));   // [P4][QA] 홈 선택일로 기본 날짜
+  // 기본 날짜: 캘린더=선택일(selDay), 홈=선택일(homeSelDay), 가계부=오늘
+  const d = curTab==='calendar' ? selDay : (curTab==='home' ? homeSelDay : ymd(NOW));
+  // 기본 구성원: 그 탭에서 특정 구성원으로 필터 중이면 그 사람, 아니면 폼 기본값(null)
+  const mem = (curTab==='calendar'||curTab==='ledger') ? (recMemberFilter!=='all'?recMemberFilter:null)
+            : (curTab==='home' ? (homeFilter!=='all'?homeFilter:null) : null);
+  openRecordSheet(null, kind, flow, mem, null, d);
 }
 
 // 선택일 통합 (일정기록 event + 그날 루틴) 시간순, 무시간/종일은 상단존.
@@ -2107,8 +2178,9 @@ function renderTodayTimeline(dstr){
   // [1] 그날이 반복 규칙에 맞는 반복 일정 occurrence도 표시 (원본 발생일은 위에 이미 포함 → 제외됨)
   events = events.concat(repeatOccurrencesOnDay(tStr));
   if(!isAll) events = events.filter(r=>r.memberId===sel);
-  // [P3] 루틴은 오늘·과거 날짜까지 표시·체크 가능(백필). 미래일엔 일정만.
-  let routines = (tStr<=ymd(NOW)) ? DB.routines.filter(r=>routineDueOnDay(r,tStr)) : [];
+  // [P4] 루틴은 예정 요일이면 미래일에도 '미리보기'로 표시(체크는 오늘·과거만 가능). 이전엔 미래일에 아예 안 떠서 '내일 루틴이 없다'고 오해됨.
+  const isFutureDay = tStr>ymd(NOW);
+  let routines = DB.routines.filter(r=>routineDueOnDay(r,tStr));
   if(!isAll) routines = routines.filter(r=>r.memberId===sel);
 
   const items = [];
@@ -2127,7 +2199,7 @@ function renderTodayTimeline(dstr){
   // [3] 홈에서도 카운트형 포함 모든 루틴을 탭으로 진행/완료 가능 (전체 보기 포함)
   return items.map(it=>{
     if(it.type==='event') return scheduleRowEvent(it.rec, {editable:true});
-    return scheduleRowRoutine(it.rt, {interactive:true, day:tStr});
+    return scheduleRowRoutine(it.rt, {interactive:!isFutureDay, day:tStr});
   }).join('');
 }
 
@@ -2140,8 +2212,7 @@ function renderCalendar(){
   // 캘린더는 주간/월간만 — 'today' 상태로 들어왔으면 월간으로 보정
   if(recordView==='today') recordView='month';
   let html = '';
-  // [회의] 주 액션(기록 추가)을 위로. 기록은 [누구→무엇] 독립 흐름이라 필터에 의존 안 함.
-  html += `<button class="btn btn-primary btn-block" style="margin-bottom:var(--gap-block)" onclick="openGuidedRecord('calendar')">${icon('plus',16)} 기록 추가</button>`;
+  // [P4] 상단 '기록 추가' 버튼 제거 → 우측 하단 통합 FAB로 일원화(스크롤해도 안 사라짐).
   // [회의] 보기 컨트롤 묶음: 필터(누구·종류) + 범례 + 주간/월간 + 기간 — 달력을 '거르는' 것들을 한 데로
   const recAtNow = isRecordAtNow();
   const recRng = recordRange();
@@ -2216,7 +2287,7 @@ function renderVision(){
         list = list.slice().sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
         return `<div class="open-list">${list.length?list.map(r=>habitHubRow(r, true, !isAll)).join(''):'<div class="muted">루틴이 없어요</div>'}</div>`;
       })();
-  html += visionSectionWrap('habits', `습관 현황 <span class="sec-count">(연속·주간·달성률)</span>`, habitBody);
+  html += visionSectionWrap('habits', `루틴 현황 <span class="sec-count">(연속·주간·달성률)</span>`, habitBody);
 
   // --- 기간별 회고 (보고서 종합) ---
   html += visionSectionWrap('report', `기간별 회고 <span class="sec-count">(보고서 종합)</span>`, reportControlsHtml() + (repShown?renderReportCard({mode:'full'}):''));
@@ -2296,19 +2367,20 @@ function openVisionDetail(id){
   }else{
     // [정성=정량 위계 통일] 큰 D-day + 목표일 + 충실도 바 + (페이스 대신) 연속/충실도 2단
     const d=dday(v); const fid=visionFidelity(v);
+    const cnt=visionAchieveCounts(v); const apct=cnt.total?Math.round(cnt.done/cnt.total*100):0;
     const rts=DB.routines.filter(r=>r.visionId===v.id);
     const rtList=rts.length?rts.map(r=>{const m=memberById(r.memberId);return `<span class="mchip">${icon('arrows-clockwise')} ${escapeHtml(r.title)}${m?' · '+escapeHtml(m.name):''}</span>`;}).join(' '):'<span class="vmeta">연결된 루틴이 없어요</span>';
     const ddVal = d>=0 ? `D-${d}` : `D+${-d}`;
     head = `<div class="vbig" style="font-size:34px">${ddVal}</div>
-      <div class="vmeta" style="margin:6px 0 4px">목표일 <b style="color:var(--ink);font-weight:500">${escapeHtml(v.dueDate)}</b></div>
-      <div class="bar" style="margin:8px 0 14px"><span style="width:${fid}%;background:var(--accent)"></span></div>
+      <div class="vmeta" style="margin:6px 0 4px">목표일 <b style="color:var(--ink);font-weight:500">${escapeHtml(v.dueDate)}</b>${cnt.total?` · 달성률 <b style="color:var(--accent);font-weight:600">${apct}%</b>`:''}</div>
+      <div class="bar" style="margin:8px 0 14px"><span style="width:${apct}%;background:var(--accent)"></span></div>
       <div style="display:flex;gap:14px">
         <div style="flex:1;min-width:0">
-          <div style="font-size:11px;color:var(--ink-3);font-weight:400;margin-bottom:2px">연결 루틴</div>
-          <div style="font-size:15px;font-weight:600;letter-spacing:-.3px;line-height:1.3;color:var(--ink)">${rts.length}개</div>
+          <div style="font-size:11px;color:var(--ink-3);font-weight:400;margin-bottom:2px">지킨 날 (누적)</div>
+          <div style="font-size:15px;font-weight:600;letter-spacing:-.3px;line-height:1.3;color:var(--ink)">${cnt.done} / ${cnt.total}일</div>
         </div>
         <div style="flex-shrink:0;text-align:right">
-          <div style="font-size:11px;color:var(--ink-3);font-weight:400;margin-bottom:2px">루틴 지킨 비율</div>
+          <div style="font-size:11px;color:var(--ink-3);font-weight:400;margin-bottom:2px">최근 1주 지킨 비율</div>
           <div style="font-size:18px;font-weight:600;letter-spacing:-.4px;line-height:1.3;color:var(--accent)">${fid}%</div>
         </div>
       </div>
@@ -2615,8 +2687,7 @@ function renderLedger(){
 }
 function renderLedgerList(){
   let html = '';
-  // [회의] 주 액션(수입·지출 기록)을 위로. 가이드 [누구→지출/수입] 독립 흐름 → 필터에 의존 안 함.
-  html += `<button class="btn btn-primary btn-block" style="margin-bottom:var(--gap-block)" onclick="openGuidedRecord('ledger')">${icon('plus',16)} 수입·지출 기록</button>`;
+  // [P4] 상단 '수입·지출 기록' 버튼 제거 → 우측 하단 통합 FAB로 일원화(지출 기본).
   // [회의] 보기 컨트롤 묶음: 필터(누구) + 범례 + 오늘/7일/이번달 + 기간
   const atNow = isLedgerAtNow();
   const rng=ledgerRange();
@@ -2892,10 +2963,24 @@ function recsForDayFiltered(dstr){
   }
   return base.concat(occ).sort((a,b)=>a.ts-b.ts);
 }
+// [P4] 그날 '완료한' 루틴(읽기전용 표시용) — 별도 기록 생성 없이 캘린더/활동에 완료표시만. 종류필터가 특정종류면 숨김(루틴은 별도 종류 아님).
+function completedRoutinesOnDay(dstr){
+  if(recKindFilter!=='all') return [];
+  let rs = DB.routines.filter(r=> routineDueOnDay(r,dstr) && routineComplete(r,dstr));
+  if(recMemberFilter!=='all') rs = rs.filter(r=>r.memberId===recMemberFilter);
+  return rs;
+}
+// [P4] 캘린더 날짜별 상세: 실제 기록 + 완료 루틴(읽기전용) 합쳐 렌더
+function dayDetailHtml(dstr){
+  const recs = recsForDayFiltered(dstr);
+  const rts = completedRoutinesOnDay(dstr);
+  const rows = recs.map(r=>renderRecordRow(r,{showTime:true,editable:true}))
+    .concat(rts.map(r=>scheduleRowRoutine(r,{interactive:false, day:dstr})));
+  return rows.length ? rows.join('') : '<div class="muted">기록이 없어요</div>';
+}
 // [안A] 달력 항목 칩: 색=구성원(원), 흰색 아이콘=종류. max 초과분은 "+N"
 function calItemsForDay(dstr, max){
   const recs = recsForDayFiltered(dstr);
-  if(!recs.length) return '';
   const items = recs.map(r=>{
     const m = memberById(r.memberId);
     const color = m ? m.color : 'var(--ink-3)';
@@ -2905,6 +2990,14 @@ function calItemsForDay(dstr, max){
     const lbl = `${m?m.name:'담당 없음'} · ${km?km[0]:'기록'}`;
     return `<span class="cal-item" style="background:${escapeHtml(color)}" title="${escapeHtml(lbl)}" aria-label="${escapeHtml(lbl)}">${icon(iconName)}</span>`;
   });
+  // [P4] 완료한 루틴을 흰 체크 링 칩으로 병기(읽기전용 표시)
+  completedRoutinesOnDay(dstr).forEach(r=>{
+    const m = memberById(r.memberId);
+    const color = m ? m.color : 'var(--ink-3)';
+    const lbl = `${m?m.name:'담당 없음'} · ${r.title} 완료`;
+    items.push(`<span class="cal-item done-rt" style="background:${escapeHtml(color)}" title="${escapeHtml(lbl)}" aria-label="${escapeHtml(lbl)}">${icon('check')}</span>`);
+  });
+  if(!items.length) return '';
   let html = items.slice(0, max).join('');
   if(items.length > max) html += `<span class="cal-more">+${items.length-max}</span>`;
   return html;
@@ -2935,7 +3028,7 @@ function viewToday(){
   // [기간 탐색] 선택된 일(recDay) 기준. 제목은 오늘/어제/날짜로 동적.
   const recs = recsForDayFiltered(recDay);
   return calSummaryHtml(recs) + `<div class="sec-title" style="margin-top:6px">${escapeHtml(recordRange().label)} 타임라인</div>
-    <div class="open-list">${recs.length?recs.map(r=>renderRecordRow(r,{showTime:true,editable:true})).join(''):'<div class="muted">기록이 없어요</div>'}</div>`;
+    <div class="open-list">${dayDetailHtml(recDay)}</div>`;
 }
 function viewWeek(){
   // [기간 탐색] 선택된 주(recWeekStart, 월요일 시작) 기준. 제목은 실제 주 범위로 동적.
@@ -2948,12 +3041,11 @@ function viewWeek(){
       <div class="dn">${DOW[d.getDay()]}</div><div class="dd">${d.getDate()}</div>
       <div class="cal-items">${calItemsForDay(ds,4)}</div></div>`;
   }
-  const recs=recsForDayFiltered(selDay);
   const weekRecs = (function(){ let arr=[]; for(let i=0;i<7;i++){ arr=arr.concat(recsForDayFiltered(ymd(addDays(start,i)))); } return arr; })();
   return calSummaryHtml(weekRecs) + `<div class="sec-title" style="margin-top:6px">${escapeHtml(recordRange().label)}</div>
     <div class="wk" style="margin-bottom:16px">${strip}</div>
     <div class="sec-title">${escapeHtml(dayTitle(selDay))}</div>
-    <div class="open-list">${recs.length?recs.map(r=>renderRecordRow(r,{showTime:true,editable:true})).join(''):'<div class="muted">기록이 없어요</div>'}</div>`;
+    <div class="open-list">${dayDetailHtml(selDay)}</div>`;
 }
 // [기간 탐색] 선택일 제목 — 오늘/어제면 그 단어, 그 외엔 "6월 24일 (화)"
 function dayTitle(dstr){
@@ -2978,13 +3070,12 @@ function viewMonth(){
   DOW.forEach(d=>cells+=`<div class="cal-dow">${d}</div>`);
   for(let i=0;i<startDow;i++) cells+=calCell(null,false);
   for(let dd=1;dd<=daysIn;dd++) cells+=calCell(new Date(y,mo,dd),true);
-  const recs=recsForDayFiltered(selDay);
   // [#4] 캘린더 월 요약도 돈 제외(시간·활동만)
   const monthRecs = filteredRecords().filter(r=>r.kind!=='expense' && (()=>{const d=new Date(r.ts);return d.getFullYear()===y&&d.getMonth()===mo;})());
   return calSummaryHtml(monthRecs) + `<div class="sec-title" style="margin-top:6px">${escapeHtml(recordRange().label)}</div>
     <div class="cal-grid" style="margin-bottom:16px">${cells}</div>
     <div class="sec-title">${escapeHtml(dayTitle(selDay))}</div>
-    <div class="open-list">${recs.length?recs.map(r=>renderRecordRow(r,{showTime:true,editable:true})).join(''):'<div class="muted">기록이 없어요</div>'}</div>`;
+    <div class="open-list">${dayDetailHtml(selDay)}</div>`;
 }
 function pickDay(ds){ selDay=ds; renderRecord(); }
 
@@ -3170,8 +3261,13 @@ function toggleRepSection(key){
    연간 보고서 = 그 연도의 연간 비전. 월간 보고서 = 그 연·월의 월간 비전.
    일간/주간 보고서 = 그 기간이 속한 연·월의 (연간+월간) 비전(겹치는 비전 노출). */
 function visionInReportPeriod(v){
-  // [P4][QA] 기한 목표(QUAL)는 마감일이 리포트 기간에 속하면 노출 (비전탭의 마감일 기준과 일치)
-  if(v.type==='QUAL' && v.dueDate){ const rng=reportRange(); return v.dueDate>=rng.from && v.dueDate<=rng.to; }
+  // [P4] 기한 목표(QUAL)는 '진행 중'인 기간이면 노출 — 만든 날~마감일 구간이 리포트 기간과 겹치면 표시.
+  //  (이전엔 '마감일이 그 기간에 있을 때'만 떠서, 마감이 몇 달 뒤인 진행 중 비전이 이번달 회고에 안 뜨는 문제)
+  if(v.type==='QUAL' && v.dueDate){
+    const rng=reportRange();
+    const start = v.createdAt || '0000-01-01';   // 생성일 모르면 진행 중으로 간주
+    return start<=rng.to && v.dueDate>=rng.from;
+  }
   const vy = visionYear(v);
   if(repPeriod==='year') return v.period==='year' && vy===repYear;
   if(repPeriod==='month') return v.period==='month' && vy===repMonth.y && visionMonth(v)===repMonth.m;
@@ -3315,10 +3411,10 @@ function renderReportCard(opts){
       const p = visionPct(v);
       return renderBar(`${v.title} · ${periodLbl}`, p, 100, 'var(--accent)');
     }
-    // QUAL: dueDate 우선, 없으면 비전 기간 종료일 기준 D-day
+    // QUAL: dueDate 우선, 없으면 비전 기간 종료일 기준 D-day. 진행률 = 누적 달성률.
     const dleft = (v.dueDate!=null) ? dday(v) : visionPeriodDday(v);
     const ddLbl = dleft>0 ? `D-${dleft}` : (dleft===0 ? 'D-day' : `D+${-dleft}`);
-    return renderBar(`${v.title} · ${ddLbl}`, visionFidelity(v), 100, 'var(--accent)');
+    return renderBar(`${v.title} · ${ddLbl}`, visionQualPct(v), 100, 'var(--accent)');
   }).join('');
 
   return `<div class="card glass" id="reportCard">
@@ -3458,7 +3554,7 @@ function tapRoutine(id, dstr){
     if(r.visionId){
       // [마이크로피드백] "→[비전명] +N%" — 루틴 완료가 연결 비전을 움직임
       const v=visionById(r.visionId);
-      if(v){ const p = v.type==='QUANT'?visionPct(v):visionFidelity(v); toast(`→ ${v.title} (${p}%)`); }
+      if(v){ const p = visionProgressPct(v); toast(`→ ${v.title} (${p}%)`); }
       else toast('루틴 완료! 연속 ' + routineStreak(r) + '일');
     } else toast('루틴 완료! 연속 ' + routineStreak(r) + '일');
   }
@@ -3667,7 +3763,8 @@ function restoreAutoBackup(){
 /* ============================================================
    SHEET / 모달 헬퍼
    ============================================================ */
-function showSheet(html){ document.getElementById('sheet').innerHTML=html; document.getElementById('overlay').classList.add('show'); }
+// [P4] 긴 시트(가계부 등)에서 위로 스크롤해 닫아야 하는 불편 해소 → 항상 상단에 붙어있는 고정 닫기(X) 버튼을 시트마다 자동 추가.
+function showSheet(html){ document.getElementById('sheet').innerHTML='<button class="sheet-x" onclick="closeSheet()" aria-label="닫기">'+icon('x',18)+'</button>'+html; document.getElementById('overlay').classList.add('show'); }
 function closeSheet(){
   // [버그] 기여 기록 시트를 닫을 때(저장/삭제/배경탭/취소 모두) 원래 보던 비전 상세로 복귀
   if(recSheetReturnVision){
@@ -3937,7 +4034,7 @@ function renderVisionSheet(){
 function saveVision(){
   if(!vForm.title.trim()){ toast('제목을 입력해주세요'); return; }
   const editing = !!vEditId;
-  const v = editing ? visionById(vEditId) : { id:uid() };
+  const v = editing ? visionById(vEditId) : { id:uid(), createdAt:ymd(NOW) };   // [P4] 누적 달성률·회고 노출의 시작 기준
   if(editing && !v){ toast('비전을 찾을 수 없어요'); return; }
   v.title=vForm.title.trim(); v.type=vForm.type; v.period=vForm.period;
   // [2] 대상 기간(날짜): 연간=year, 월간=year+month
@@ -4152,7 +4249,7 @@ function renderRecordSheet(){
   }
   // 일정 전용 고급 옵션(반복·알림)만 접기. 비전 연결은 본문으로 올렸으니 아코디언에서 제외.
   const advInner = `${repeatField}${remindField}`;
-  const html=`<span class="grab"></span><h3>${editing?'기록 수정':'빠른 기록'}</h3>
+  const html=`<span class="grab"></span><h3>${editing?'기록 수정':'기록 추가'}</h3>
     <div class="field"><label>누가</label><div class="chip-row">${mchips}</div></div>
     <div class="field"><label>종류</label><div class="chip-row">${kchips}</div></div>
     ${flowToggle}
@@ -4197,7 +4294,7 @@ function saveRecord(){
   if(rForm.kind==='weight' && (rForm.value===''||rForm.value==null)){ toast('체중(kg)을 입력해주세요'); return; }
   // [마이크로피드백] 연결 비전의 저장 전 진행률 — 저장 후 변화(+N%)를 즉시 토스트
   const linkV = rForm.visionId ? visionById(rForm.visionId) : null;
-  const beforePct = linkV ? (linkV.type==='QUANT'?visionPct(linkV):visionFidelity(linkV)) : 0;
+  const beforePct = linkV ? visionProgressPct(linkV) : 0;
   if(rEditId){
     const r=DB.records.find(x=>x.id===rEditId);
     r.memberId=rForm.memberId; r.kind=rForm.kind; r.title=rForm.title.trim();
@@ -4229,7 +4326,7 @@ function saveRecord(){
       const used=capUsedPct(v); const rem=(visionTarget(v)||0)-(v.currentValue||0);
       toast(`→ ${v.title} · 예산 ${used}% 사용${rem<0?` · ${won(-rem)}${escapeHtml(v.unit||'')} 초과`:''}`);
     } else {
-      const afterPct = v.type==='QUANT'?visionPct(v):visionFidelity(v);
+      const afterPct = visionProgressPct(v);
       const delta = afterPct - beforePct;
       const dTxt = delta>0 ? ` +${delta}%` : (delta<0 ? ` ${delta}%` : '');
       toast(`→ ${v.title}${dTxt} (${afterPct}%)`);
@@ -4319,7 +4416,7 @@ function saveRoutine(){
     r.freq=rtForm.freq; r.days=days; r.visionId=rtForm.visionId||null; r.time=rtForm.time; r.count=cnt; r.remind=rtForm.remind||'none';
     delete r.emoji; delete r.perWeek;
   } else {
-    DB.routines.push({ id:uid(), memberId:rtForm.memberId, title:rtForm.title.trim(), freq:rtForm.freq, days:days, visionId:rtForm.visionId||null, time:rtForm.time, count:cnt, remind:rtForm.remind||'none', checks:{} });
+    DB.routines.push({ id:uid(), memberId:rtForm.memberId, title:rtForm.title.trim(), freq:rtForm.freq, days:days, visionId:rtForm.visionId||null, time:rtForm.time, count:cnt, remind:rtForm.remind||'none', createdAt:ymd(NOW), checks:{} });   // [P4] createdAt = 지킨 비율/누적 달성률 시작 기준
   }
   recomputeVisions(); saveDB(); closeSheet(); renderAll(); toast(rtEditId?'수정되었어요':'루틴이 추가되었어요');
 }
@@ -4346,9 +4443,13 @@ function showToast(msg,label,fn){
   const t=document.getElementById('toast'); toastActionFn=fn||null;
   t.innerHTML = `<span>${escapeHtml(msg)}</span>` + (label?`<span class="tundo" onclick="runToastAction()">${escapeHtml(label)}</span>`:'');
   t.classList.toggle('has-act', !!fn); t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{ t.classList.remove('show'); toastActionFn=null; }, fn?5000:2200);
+  setPhoneToasting(true);   // [P4] FAB를 잠깐 비켜(흐리게)
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{ t.classList.remove('show'); toastActionFn=null; setPhoneToasting(false); }, fn?5000:2200);
 }
-function runToastAction(){ const f=toastActionFn; toastActionFn=null; document.getElementById('toast').classList.remove('show'); if(f) f(); }
+function setPhoneToasting(on){ const p=document.querySelector('.phone'); if(p) p.classList.toggle('toasting', !!on); }
+function runToastAction(){ const f=toastActionFn; toastActionFn=null; document.getElementById('toast').classList.remove('show'); setPhoneToasting(false); if(f) f(); }
+// [P4] 통합 기록 FAB 표시 여부 — 기록을 추가하는 탭(홈·캘린더·가계부)에서만. 비전(진행률 보기)·더보기는 숨김.
+function renderFab(){ const f=document.getElementById('fab'); if(f) f.classList.toggle('hide', ['home','calendar','ledger'].indexOf(curTab)<0); }
 
 /* ============================================================
    NAVIGATION / 페이지 전환 + 탭바 (인라인 아이콘)
@@ -4364,10 +4465,9 @@ function go(tab){
   curTab=tab;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+tab).classList.add('active');
-  const titles={home:'홈',calendar:'캘린더',ledger:'가계부',vision:'비전',more:'더보기'};
-  document.getElementById('hdrTitle').textContent=titles[tab];
+  const ht=document.getElementById('hdrTitle'); if(ht){ const titles={home:'홈',calendar:'캘린더',ledger:'가계부',vision:'비전',more:'더보기'}; ht.textContent=titles[tab]; }
   document.getElementById('screen').scrollTop=0;
-  renderTabbar(); renderAll();
+  renderTabbar(); renderFab(); renderAll();
 }
 
 /* ============================================================
@@ -4407,7 +4507,7 @@ function openHelpSheet(){
    ============================================================ */
 const FOCUS_META = {
   ledger:  { label:'가계부',        ic:'trend-up',  short:'가계부 중심',     desc:'지출·수입을 빠르게 기록하고 한눈에 정리해요.' },
-  routine: { label:'가족 습관',     ic:'repeat',    short:'가족 습관 중심',  desc:'함께 지킬 루틴을 만들고 연속·달성률을 챙겨요.' },
+  routine: { label:'가족 루틴',     ic:'repeat',    short:'가족 루틴 중심',  desc:'함께 지킬 루틴을 만들고 연속·달성률을 챙겨요.' },
   vision:  { label:'가족 목표',     ic:'target',    short:'가족 목표 중심',  desc:'함께 세운 비전으로 시작해 진행률을 키워가요.' }
 };
 let onbPick = null;   // 온보딩에서 임시로 고른 포커스
@@ -4621,7 +4721,7 @@ function init(){
   applyTheme(DB.theme);   // [P3] 저장된 테마 적용
   document.documentElement.classList.toggle('dark', !!DB.dark);   // [P3] 다크 모드
   document.getElementById('hdrDate').textContent = NOW.getFullYear()+'년 '+fmtDateK(NOW);
-  renderTabbar(); renderAll();
+  renderTabbar(); renderFab(); renderAll();
   // [P2] 처음(또는 미설정)이면 온보딩 오버레이 노출
   if(shouldOnboard()) openOnboarding(false);
  }catch(e){
@@ -4632,6 +4732,18 @@ function init(){
  }
 }
 init();
+
+// [P4] iOS 사파리 확대 차단 — meta의 user-scalable=no를 사파리가 무시하므로 제스처/더블탭 줌을 직접 막음.
+(function(){
+  document.addEventListener('gesturestart', function(e){ e.preventDefault(); }, {passive:false});
+  document.addEventListener('gesturechange', function(e){ e.preventDefault(); }, {passive:false});
+  let lastTouch=0;
+  document.addEventListener('touchend', function(e){
+    const now=e.timeStamp||0;
+    if(now-lastTouch<=300){ e.preventDefault(); }   // 더블탭 줌 차단(단일 탭은 통과)
+    lastTouch=now;
+  }, {passive:false});
+})();
 </script>
 </body>
 </html>
