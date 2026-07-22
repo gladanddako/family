@@ -4815,7 +4815,7 @@ function renderRecordWizard(){
     title='얼마예요?';
     const amtFmt = (rForm.amount!==''&&rForm.amount!=null)?Number(String(rForm.amount).replace(/[^0-9]/g,'')||0).toLocaleString('ko-KR'):'';
     const amt = `<div class="field"><div class="amt-big-wrap"><input type="text" inputmode="numeric" id="rAmt" class="amt-big" value="${amtFmt}" placeholder="0" oninput="wzAmt(this)"><span class="amt-suffix">원</span></div></div>`;
-    const mem = `<div class="chip-row mem" style="margin-top:var(--sp-4)"><span class="chip${rForm._memPicked&&rForm.memberId===''?' on':''}" onclick="rForm.memberId='';rForm._memPicked=true;renderRecordWizard()">전체</span>${DB.members.map(m=>`<span onclick="rForm.memberId='${m.id}';rForm._memPicked=true;renderRecordWizard()">${memberPill(m,{size:'sm',active:rForm._memPicked&&rForm.memberId===m.id})}</span>`).join('')}</div>`;   // [모두쓰] 전체 + 구성원, 무선택 기본(안 고르면 전체)
+    const mem = `<div class="chip-row mem" id="wzMemRow" style="margin-top:var(--sp-4)">${wzMemChips()}</div>`;   // [모두쓰] 구성원 탭 시 이 줄만 갱신(금액칸 유지 → 키보드 안 흔들림)
     const dirs = `<div class="wz-dirs">${[['out','－지출'],['in','＋수입'],['save','↔저축'],['transfer','⇄이체']].map(fl=>`<button class="wz-dir${rForm.flow===fl[0]?' on':''}" onclick="recWizDir('${fl[0]}')">${fl[1]}</button>`).join('')}</div>`;
     body = amt+mem+dirs;   // [모두쓰] 방향 버튼 = 확정+다음(위플식), 별도 '다음' 없음
   } else if(recStep===2){
@@ -4842,6 +4842,8 @@ function recWizDir(f){ if(!(rForm.amount&&parseInt(rForm.amount)>0)){ toast('금
 function recentTitles(){ const seen=new Set(), out=[]; (DB.records||[]).filter(r=>r.kind==='expense'&&r.flow!=='transfer'&&r.title).slice().sort((a,b)=>b.ts-a.ts).forEach(r=>{ const t=String(r.title).trim(); if(t&&!seen.has(t)){ seen.add(t); out.push(t); } }); return out.slice(0,8); }
 function toggleWzHist(){ const e=document.getElementById('wzHist'); if(e) e.hidden=!e.hidden; }
 function pickWzHist(t){ rForm.title=t; rForm._autoTitle=''; const i=document.getElementById('rTitle'); if(i) i.value=t; const e=document.getElementById('wzHist'); if(e) e.hidden=true; }
+function wzMemChips(){ return `<span class="chip${rForm._memPicked&&rForm.memberId===''?' on':''}" onclick="wzPickMem('')">전체</span>${DB.members.map(m=>`<span onclick="wzPickMem('${m.id}')">${memberPill(m,{size:'sm',active:rForm._memPicked&&rForm.memberId===m.id})}</span>`).join('')}`; }
+function wzPickMem(id){ rForm.memberId=id; rForm._memPicked=true; const el=document.getElementById('wzMemRow'); if(el) el.innerHTML=wzMemChips(); }   // [모두쓰] 구성원 줄만 다시 그림 → 금액칸/키보드 유지
 function recWizBack(){ if(recStep>1){ recStep--; renderRecordWizard(); } else { recWiz=false; backToQuickMenu(); } }
 /* --- 가계부 카테고리 (사용자 정의, 수입/지출 구분) --- */
 let catAddMode=false;
